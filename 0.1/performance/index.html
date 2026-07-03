@@ -608,19 +608,23 @@ apples-to-apples.</p>
   a fixed inner loop, timed with a monotonic clock; the <strong>best</strong> pass is reported
   as <strong>ns/op</strong>. Interpreter start-up is outside the timed region, so the number
   is the operation's own cost, not <code>ruby file.rb</code> process cost. Numbers were
-  stable to within ~1 % across repeated runs.</li>
+  stable to within ~5 % across repeated runs.</li>
 <li>Harness and drivers live in this repo under
   <a href="https://github.com/go-ruby-strscan/docs/tree/main/benchmarks"><code>benchmarks/</code></a>
   (<code>go/</code>, <code>ruby/strscan.rb</code>, <code>run.sh</code>). Reproduce: <code>bash benchmarks/run.sh</code>.</li>
 </ul>
 <h2 id="results-nsop-best-of-25">Results (ns/op, best of 25)<a class="headerlink" href="#results-nsop-best-of-25" title="Permanent link">&para;</a></h2>
-<p>These are the numbers <strong>after</strong> wiring the scanner onto <code>go-ruby-regexp</code>'s
-allocation-free <strong>bounds-only</strong> match API (<code>MatchBoundsAt</code> / <code>MatchBounds</code>):
-the regexp-driven ops (<code>scan</code> / <code>skip</code> / <code>match?</code> / <code>scan_until</code>) take the
-whole-match span with no <code>MatchData</code> allocation, and the capture-bearing
-<code>MatchData</code> is rebuilt lazily only if the caller actually reads a group
-(<code>StringScanner#[]</code>) — which a tokenizing lexer never does. Output stays
-byte-identical to MRI on every op, captures included.</p>
+<p>These are the numbers <strong>after</strong> <code>go-ruby-regexp</code> landed its anchored
+<strong>class-run consumer</strong> — a fast path in the regexp VM that consumes a run of a
+single character class (<code>\s+</code>, <code>\S+</code>, <code>[0-9]+</code>, <code>[A-Za-z0-9_]+</code>, …) directly at
+the anchor with no per-byte VM dispatch. The scanner reaches it for free through
+the allocation-free <strong>bounds-only</strong> match API (<code>MatchBoundsAt</code> / <code>MatchBounds</code>)
+it already calls: no strscan code changed, only the <code>go-ruby-regexp</code> pin was
+bumped. The regexp-driven ops whose pattern is a single anchored class-repeat —
+<code>skip</code>, <code>match?</code>, and the class tokens inside <code>scan-tokenize</code> — take the win
+directly; capture-bearing <code>MatchData</code> is still rebuilt lazily only if the caller
+reads a group (<code>StringScanner#[]</code>), which a tokenizing lexer never does. Output
+stays byte-identical to MRI on every op, captures included.</p>
 <table>
 <thead>
 <tr>
@@ -636,64 +640,65 @@ byte-identical to MRI on every op, captures included.</p>
 <tbody>
 <tr>
 <td><code>peek</code></td>
-<td style="text-align: right;"><strong>6 660</strong></td>
-<td style="text-align: right;">245 280</td>
-<td style="text-align: right;">188 745</td>
-<td style="text-align: right;">63 727</td>
-<td style="text-align: right;">56 332</td>
-<td style="text-align: right;"><strong>28.3× faster</strong> ✅</td>
+<td style="text-align: right;"><strong>6 666</strong></td>
+<td style="text-align: right;">245 935</td>
+<td style="text-align: right;">187 195</td>
+<td style="text-align: right;">60 654</td>
+<td style="text-align: right;">56 231</td>
+<td style="text-align: right;"><strong>28.1× faster</strong> ✅</td>
 </tr>
 <tr>
 <td><code>getch</code></td>
-<td style="text-align: right;"><strong>5 275</strong></td>
-<td style="text-align: right;">138 130</td>
-<td style="text-align: right;">100 025</td>
-<td style="text-align: right;">40 247</td>
-<td style="text-align: right;">69 087</td>
-<td style="text-align: right;"><strong>19.0× faster</strong> ✅</td>
-</tr>
-<tr>
-<td><code>scan-tokenize</code></td>
-<td style="text-align: right;"><strong>243 787</strong></td>
-<td style="text-align: right;">458 135</td>
-<td style="text-align: right;">329 090</td>
-<td style="text-align: right;">389 162</td>
-<td style="text-align: right;">58 185</td>
-<td style="text-align: right;"><strong>1.35× faster</strong> ✅</td>
-</tr>
-<tr>
-<td><code>scan_until</code></td>
-<td style="text-align: right;">23 344</td>
-<td style="text-align: right;">27 875</td>
-<td style="text-align: right;">21 600</td>
-<td style="text-align: right;">16 349</td>
-<td style="text-align: right;">9 425</td>
-<td style="text-align: right;">1.08× slower</td>
+<td style="text-align: right;"><strong>5 516</strong></td>
+<td style="text-align: right;">137 450</td>
+<td style="text-align: right;">99 585</td>
+<td style="text-align: right;">39 627</td>
+<td style="text-align: right;">68 888</td>
+<td style="text-align: right;"><strong>18.1× faster</strong> ✅</td>
 </tr>
 <tr>
 <td><code>match?</code></td>
-<td style="text-align: right;">304 227</td>
-<td style="text-align: right;">330 755</td>
-<td style="text-align: right;">263 595</td>
-<td style="text-align: right;">168 658</td>
-<td style="text-align: right;">105 578</td>
-<td style="text-align: right;">1.15× slower</td>
+<td style="text-align: right;"><strong>50 972</strong></td>
+<td style="text-align: right;">330 070</td>
+<td style="text-align: right;">259 040</td>
+<td style="text-align: right;">166 611</td>
+<td style="text-align: right;">106 811</td>
+<td style="text-align: right;"><strong>5.08× faster</strong> ✅</td>
 </tr>
 <tr>
 <td><code>skip</code></td>
-<td style="text-align: right;">163 842</td>
-<td style="text-align: right;">132 395</td>
-<td style="text-align: right;">99 835</td>
-<td style="text-align: right;">86 048</td>
-<td style="text-align: right;">30 333</td>
-<td style="text-align: right;">1.64× slower</td>
+<td style="text-align: right;"><strong>34 785</strong></td>
+<td style="text-align: right;">132 420</td>
+<td style="text-align: right;">96 910</td>
+<td style="text-align: right;">84 370</td>
+<td style="text-align: right;">29 768</td>
+<td style="text-align: right;"><strong>2.79× faster</strong> ✅</td>
+</tr>
+<tr>
+<td><code>scan-tokenize</code></td>
+<td style="text-align: right;"><strong>167 708</strong></td>
+<td style="text-align: right;">464 985</td>
+<td style="text-align: right;">327 880</td>
+<td style="text-align: right;">383 669</td>
+<td style="text-align: right;">57 140</td>
+<td style="text-align: right;"><strong>1.96× faster</strong> ✅</td>
+</tr>
+<tr>
+<td><code>scan_until</code></td>
+<td style="text-align: right;">23 884</td>
+<td style="text-align: right;">27 090</td>
+<td style="text-align: right;">21 140</td>
+<td style="text-align: right;">16 547</td>
+<td style="text-align: right;">9 123</td>
+<td style="text-align: right;">1.13× slower</td>
 </tr>
 </tbody>
 </table>
 <h3 id="before-after-this-optimization">Before → after (this optimization)<a class="headerlink" href="#before-after-this-optimization" title="Permanent link">&para;</a></h3>
-<p>Same host, same session, only the <code>go-ruby-regexp</code> pin + the bounds-only rewire
-changed. The regexp-driven ops improved across the board; <code>scan-tokenize</code>
-crossed from <em>behind</em> YJIT to <em>ahead</em> of it:</p>
+<p>Same host, same session shape, only the <code>go-ruby-regexp</code> pin changed — from the
+bounds-only match API (previous page revision) to the anchored class-run
+consumer. The single-class-repeat ops moved the most; <code>skip</code> and <code>match?</code>
+crossed from <em>behind</em> YJIT to well <em>ahead</em> of it:</p>
 <table>
 <thead>
 <tr>
@@ -704,57 +709,71 @@ crossed from <em>behind</em> YJIT to <em>ahead</em> of it:</p>
 </thead>
 <tbody>
 <tr>
-<td><code>scan-tokenize</code></td>
+<td><code>skip</code></td>
 <td style="text-align: right;">1.64× slower</td>
-<td style="text-align: right;"><strong>1.35× faster</strong> ✅</td>
-</tr>
-<tr>
-<td><code>scan_until</code></td>
-<td style="text-align: right;">2.24× slower</td>
-<td style="text-align: right;">1.08× slower (≈ parity)</td>
+<td style="text-align: right;"><strong>2.79× faster</strong> ✅</td>
 </tr>
 <tr>
 <td><code>match?</code></td>
-<td style="text-align: right;">2.44× slower</td>
-<td style="text-align: right;">1.15× slower (beats plain MRI, 0.92×)</td>
+<td style="text-align: right;">1.15× slower</td>
+<td style="text-align: right;"><strong>5.08× faster</strong> ✅</td>
 </tr>
 <tr>
-<td><code>skip</code></td>
-<td style="text-align: right;">4.15× slower</td>
-<td style="text-align: right;">1.64× slower</td>
+<td><code>scan-tokenize</code></td>
+<td style="text-align: right;">1.35× faster</td>
+<td style="text-align: right;"><strong>1.96× faster</strong> ✅</td>
+</tr>
+<tr>
+<td><code>scan_until</code></td>
+<td style="text-align: right;">1.08× slower</td>
+<td style="text-align: right;">1.13× slower (no class-run fast path)</td>
+</tr>
+<tr>
+<td><code>getch</code></td>
+<td style="text-align: right;">19.0× faster</td>
+<td style="text-align: right;">18.1× faster (unchanged, non-regexp)</td>
+</tr>
+<tr>
+<td><code>peek</code></td>
+<td style="text-align: right;">28.3× faster</td>
+<td style="text-align: right;">28.1× faster (unchanged, non-regexp)</td>
 </tr>
 </tbody>
 </table>
+<p><code>skip</code> was the whole point: it is the most match-setup-bound op (many short
+alternating <code>\s+</code> / <code>\S+</code> runs), so it gained the most once the VM stopped
+dispatching per byte — from <strong>1.64× behind</strong> YJIT to <strong>2.79× ahead</strong>. <code>match?</code>
+(a single anchored <code>[A-Za-z0-9_]+</code> at every position) is the same shape and
+jumped from 1.15× behind to <strong>5.08× ahead</strong>.</p>
 <h2 id="the-go-vs-yjit-verdict-per-op">The go-vs-YJIT verdict, per op<a class="headerlink" href="#the-go-vs-yjit-verdict-per-op" title="Permanent link">&para;</a></h2>
-<p><strong>Beats YJIT:</strong></p>
+<p><strong>Beats YJIT (5 of 6):</strong></p>
 <ul>
-<li><strong><code>peek</code> — 28.3× faster than YJIT</strong> (6 660 ns vs 188 745 ns).</li>
-<li><strong><code>getch</code> — 19.0× faster than YJIT</strong> (5 275 ns vs 100 025 ns).</li>
-<li><strong><code>scan-tokenize</code> — 1.35× faster than YJIT</strong> (243 787 ns vs 329 090 ns).</li>
+<li><strong><code>peek</code> — 28.1× faster than YJIT</strong> (6 666 ns vs 187 195 ns).</li>
+<li><strong><code>getch</code> — 18.1× faster than YJIT</strong> (5 516 ns vs 99 585 ns).</li>
+<li><strong><code>match?</code> — 5.08× faster than YJIT</strong> (50 972 ns vs 259 040 ns).</li>
+<li><strong><code>skip</code> — 2.79× faster than YJIT</strong> (34 785 ns vs 96 910 ns).</li>
+<li><strong><code>scan-tokenize</code> — 1.96× faster than YJIT</strong> (167 708 ns vs 327 880 ns).</li>
 </ul>
 <p><code>peek</code> and <code>getch</code> are pure byte/rune cursor moves — a slice reslice plus a
-UTF-8 decode — so they leave every interpreter far behind. <code>scan-tokenize</code>, the
-classic anchored-<code>scan</code> lexer loop, now also <strong>beats YJIT</strong>: the bounds-only
-anchored match runs on the regexp engine's pooled, per-token-allocation-free
-lazy-NFA path, so the hot loop no longer allocates a capture array per token.</p>
-<p><strong>Still behind YJIT (but much closer):</strong></p>
+UTF-8 decode — so they leave every interpreter far behind. The three
+regexp-driven wins (<code>match?</code>, <code>skip</code>, <code>scan-tokenize</code>) all now beat YJIT because
+their hot pattern is a single anchored character-class repeat, exactly what the
+new class-run consumer collapses into one tight loop over the input bytes with
+no <code>MatchData</code> allocation and no per-byte VM step.</p>
+<p><strong>Still behind YJIT (1 of 6, but much closer):</strong></p>
 <ul>
-<li><strong><code>scan_until</code> — 1.08× slower</strong> than YJIT (essentially parity; <strong>beats plain
-  MRI at 0.84×</strong>).</li>
-<li><strong><code>match?</code> — 1.15× slower</strong> than YJIT (<strong>beats plain MRI at 0.92×</strong>).</li>
-<li><strong><code>skip</code> — 1.64× slower</strong> than YJIT.</li>
+<li><strong><code>scan_until</code> — 1.13× slower</strong> than YJIT (<strong>beats plain MRI at 0.88×</strong>).</li>
 </ul>
-<p>These remain dominated by regular-expression matching, which the library
-delegates to the sibling pure-Go Onigmo engine
-(<a href="https://github.com/go-ruby-regexp/regexp"><code>go-ruby-regexp</code></a>). MRI's <code>strscan</code>
-calls C Onigmo directly and YJIT additionally removes interpreter dispatch, so a
-residual gap remains on the ops whose per-call cost is a larger share regexp
-setup than raw matching; <code>skip</code> (many short alternating matches) is the most
-setup-bound and so trails most. Closing the rest is tracked in <code>go-ruby-regexp</code>.
-Output is byte-identical to MRI on every op; only throughput on these three lags.</p>
-<p>Net: <strong>3 of the 6 operations now beat MRI + YJIT</strong> (<code>peek</code>, <code>getch</code>,
-<code>scan-tokenize</code>) — up from 2 — and two of the remaining three (<code>scan_until</code>,
-<code>match?</code>) beat <strong>plain MRI</strong> and sit within ~15 % of YJIT.</p>
+<p><code>scan_until</code> is the one op the class-run consumer does not accelerate: it is a
+<em>forward search</em> for the next operator, not an anchored class-repeat consume, so
+it still walks the regexp engine's general search path. MRI's <code>strscan</code> calls C
+Onigmo directly and YJIT additionally removes interpreter dispatch, leaving a
+residual ~13 % gap; it still beats plain MRI. Closing the last search-path gap is
+tracked in <a href="https://github.com/go-ruby-regexp/regexp"><code>go-ruby-regexp</code></a>. Output
+is byte-identical to MRI on every op; only <code>scan_until</code> throughput lags.</p>
+<p>Net: <strong>5 of the 6 operations now beat MRI + YJIT</strong> (<code>peek</code>, <code>getch</code>, <code>match?</code>,
+<code>skip</code>, <code>scan-tokenize</code>) — up from 2 — and the last one (<code>scan_until</code>) beats
+<strong>plain MRI</strong> and sits within ~13 % of YJIT.</p>
 <div class="admonition note">
 <p class="admonition-title">Cold-JIT caveat</p>
 <p>JRuby and TruffleRuby are measured <strong>in-process after 3 warm-up passes</strong>, but
