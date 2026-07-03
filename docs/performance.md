@@ -38,76 +38,88 @@ apples-to-apples.
   a fixed inner loop, timed with a monotonic clock; the **best** pass is reported
   as **ns/op**. Interpreter start-up is outside the timed region, so the number
   is the operation's own cost, not `ruby file.rb` process cost. Numbers were
-  stable to within ~1 % across repeated runs.
+  stable to within ~5 % across repeated runs.
 - Harness and drivers live in this repo under
   [`benchmarks/`](https://github.com/go-ruby-strscan/docs/tree/main/benchmarks)
   (`go/`, `ruby/strscan.rb`, `run.sh`). Reproduce: `bash benchmarks/run.sh`.
 
 ## Results (ns/op, best of 25)
 
-These are the numbers **after** wiring the scanner onto `go-ruby-regexp`'s
-allocation-free **bounds-only** match API (`MatchBoundsAt` / `MatchBounds`):
-the regexp-driven ops (`scan` / `skip` / `match?` / `scan_until`) take the
-whole-match span with no `MatchData` allocation, and the capture-bearing
-`MatchData` is rebuilt lazily only if the caller actually reads a group
-(`StringScanner#[]`) — which a tokenizing lexer never does. Output stays
-byte-identical to MRI on every op, captures included.
+These are the numbers **after** `go-ruby-regexp` landed its anchored
+**class-run consumer** — a fast path in the regexp VM that consumes a run of a
+single character class (`\s+`, `\S+`, `[0-9]+`, `[A-Za-z0-9_]+`, …) directly at
+the anchor with no per-byte VM dispatch. The scanner reaches it for free through
+the allocation-free **bounds-only** match API (`MatchBoundsAt` / `MatchBounds`)
+it already calls: no strscan code changed, only the `go-ruby-regexp` pin was
+bumped. The regexp-driven ops whose pattern is a single anchored class-repeat —
+`skip`, `match?`, and the class tokens inside `scan-tokenize` — take the win
+directly; capture-bearing `MatchData` is still rebuilt lazily only if the caller
+reads a group (`StringScanner#[]`), which a tokenizing lexer never does. Output
+stays byte-identical to MRI on every op, captures included.
 
 | Op | go-ruby (pure Go) | MRI | MRI + YJIT | JRuby | TruffleRuby | **go vs YJIT** |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `peek` | **6 660** | 245 280 | 188 745 | 63 727 | 56 332 | **28.3× faster** ✅ |
-| `getch` | **5 275** | 138 130 | 100 025 | 40 247 | 69 087 | **19.0× faster** ✅ |
-| `scan-tokenize` | **243 787** | 458 135 | 329 090 | 389 162 | 58 185 | **1.35× faster** ✅ |
-| `scan_until` | 23 344 | 27 875 | 21 600 | 16 349 | 9 425 | 1.08× slower |
-| `match?` | 304 227 | 330 755 | 263 595 | 168 658 | 105 578 | 1.15× slower |
-| `skip` | 163 842 | 132 395 | 99 835 | 86 048 | 30 333 | 1.64× slower |
+| `peek` | **6 666** | 245 935 | 187 195 | 60 654 | 56 231 | **28.1× faster** ✅ |
+| `getch` | **5 516** | 137 450 | 99 585 | 39 627 | 68 888 | **18.1× faster** ✅ |
+| `match?` | **50 972** | 330 070 | 259 040 | 166 611 | 106 811 | **5.08× faster** ✅ |
+| `skip` | **34 785** | 132 420 | 96 910 | 84 370 | 29 768 | **2.79× faster** ✅ |
+| `scan-tokenize` | **167 708** | 464 985 | 327 880 | 383 669 | 57 140 | **1.96× faster** ✅ |
+| `scan_until` | 23 884 | 27 090 | 21 140 | 16 547 | 9 123 | 1.13× slower |
 
 ### Before → after (this optimization)
 
-Same host, same session, only the `go-ruby-regexp` pin + the bounds-only rewire
-changed. The regexp-driven ops improved across the board; `scan-tokenize`
-crossed from *behind* YJIT to *ahead* of it:
+Same host, same session shape, only the `go-ruby-regexp` pin changed — from the
+bounds-only match API (previous page revision) to the anchored class-run
+consumer. The single-class-repeat ops moved the most; `skip` and `match?`
+crossed from *behind* YJIT to well *ahead* of it:
 
 | Op | go vs YJIT before | go vs YJIT after |
 | --- | ---: | ---: |
-| `scan-tokenize` | 1.64× slower | **1.35× faster** ✅ |
-| `scan_until` | 2.24× slower | 1.08× slower (≈ parity) |
-| `match?` | 2.44× slower | 1.15× slower (beats plain MRI, 0.92×) |
-| `skip` | 4.15× slower | 1.64× slower |
+| `skip` | 1.64× slower | **2.79× faster** ✅ |
+| `match?` | 1.15× slower | **5.08× faster** ✅ |
+| `scan-tokenize` | 1.35× faster | **1.96× faster** ✅ |
+| `scan_until` | 1.08× slower | 1.13× slower (no class-run fast path) |
+| `getch` | 19.0× faster | 18.1× faster (unchanged, non-regexp) |
+| `peek` | 28.3× faster | 28.1× faster (unchanged, non-regexp) |
+
+`skip` was the whole point: it is the most match-setup-bound op (many short
+alternating `\s+` / `\S+` runs), so it gained the most once the VM stopped
+dispatching per byte — from **1.64× behind** YJIT to **2.79× ahead**. `match?`
+(a single anchored `[A-Za-z0-9_]+` at every position) is the same shape and
+jumped from 1.15× behind to **5.08× ahead**.
 
 ## The go-vs-YJIT verdict, per op
 
-**Beats YJIT:**
+**Beats YJIT (5 of 6):**
 
-- **`peek` — 28.3× faster than YJIT** (6 660 ns vs 188 745 ns).
-- **`getch` — 19.0× faster than YJIT** (5 275 ns vs 100 025 ns).
-- **`scan-tokenize` — 1.35× faster than YJIT** (243 787 ns vs 329 090 ns).
+- **`peek` — 28.1× faster than YJIT** (6 666 ns vs 187 195 ns).
+- **`getch` — 18.1× faster than YJIT** (5 516 ns vs 99 585 ns).
+- **`match?` — 5.08× faster than YJIT** (50 972 ns vs 259 040 ns).
+- **`skip` — 2.79× faster than YJIT** (34 785 ns vs 96 910 ns).
+- **`scan-tokenize` — 1.96× faster than YJIT** (167 708 ns vs 327 880 ns).
 
 `peek` and `getch` are pure byte/rune cursor moves — a slice reslice plus a
-UTF-8 decode — so they leave every interpreter far behind. `scan-tokenize`, the
-classic anchored-`scan` lexer loop, now also **beats YJIT**: the bounds-only
-anchored match runs on the regexp engine's pooled, per-token-allocation-free
-lazy-NFA path, so the hot loop no longer allocates a capture array per token.
+UTF-8 decode — so they leave every interpreter far behind. The three
+regexp-driven wins (`match?`, `skip`, `scan-tokenize`) all now beat YJIT because
+their hot pattern is a single anchored character-class repeat, exactly what the
+new class-run consumer collapses into one tight loop over the input bytes with
+no `MatchData` allocation and no per-byte VM step.
 
-**Still behind YJIT (but much closer):**
+**Still behind YJIT (1 of 6, but much closer):**
 
-- **`scan_until` — 1.08× slower** than YJIT (essentially parity; **beats plain
-  MRI at 0.84×**).
-- **`match?` — 1.15× slower** than YJIT (**beats plain MRI at 0.92×**).
-- **`skip` — 1.64× slower** than YJIT.
+- **`scan_until` — 1.13× slower** than YJIT (**beats plain MRI at 0.88×**).
 
-These remain dominated by regular-expression matching, which the library
-delegates to the sibling pure-Go Onigmo engine
-([`go-ruby-regexp`](https://github.com/go-ruby-regexp/regexp)). MRI's `strscan`
-calls C Onigmo directly and YJIT additionally removes interpreter dispatch, so a
-residual gap remains on the ops whose per-call cost is a larger share regexp
-setup than raw matching; `skip` (many short alternating matches) is the most
-setup-bound and so trails most. Closing the rest is tracked in `go-ruby-regexp`.
-Output is byte-identical to MRI on every op; only throughput on these three lags.
+`scan_until` is the one op the class-run consumer does not accelerate: it is a
+*forward search* for the next operator, not an anchored class-repeat consume, so
+it still walks the regexp engine's general search path. MRI's `strscan` calls C
+Onigmo directly and YJIT additionally removes interpreter dispatch, leaving a
+residual ~13 % gap; it still beats plain MRI. Closing the last search-path gap is
+tracked in [`go-ruby-regexp`](https://github.com/go-ruby-regexp/regexp). Output
+is byte-identical to MRI on every op; only `scan_until` throughput lags.
 
-Net: **3 of the 6 operations now beat MRI + YJIT** (`peek`, `getch`,
-`scan-tokenize`) — up from 2 — and two of the remaining three (`scan_until`,
-`match?`) beat **plain MRI** and sit within ~15 % of YJIT.
+Net: **5 of the 6 operations now beat MRI + YJIT** (`peek`, `getch`, `match?`,
+`skip`, `scan-tokenize`) — up from 2 — and the last one (`scan_until`) beats
+**plain MRI** and sits within ~13 % of YJIT.
 
 !!! note "Cold-JIT caveat"
     JRuby and TruffleRuby are measured **in-process after 3 warm-up passes**, but
