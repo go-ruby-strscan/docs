@@ -1,4 +1,4 @@
-github.com/go-ruby-regexp/regexp v0.0.0-20260701043846-fa3d6604e1ee h1:ctauEAdAq129WCrU+dndYcOjNlo1Y94vWNBtgXp1heE=
-github.com/go-ruby-regexp/regexp v0.0.0-20260701043846-fa3d6604e1ee/go.mod h1:+0nK2X+aCPMO91bPMM/DT1OFUIzFQeoTPGkkOR3kd84=
-github.com/go-ruby-strscan/strscan v0.0.0-20260701044334-d0cc926643a8 h1:WxInOHCeP0EDmZqorooXIYTcDgBNm+3rOnfjRcWHlN0=
-github.com/go-ruby-strscan/strscan v0.0.0-20260701044334-d0cc926643a8/go.mod h1:WNa2NtlvT8gaOrAw6m3VCb+8WgBWdOLLEWbKiugZ2wY=
+github.com/go-ruby-regexp/regexp v0.0.0-20260703193131-c52ca89ccd08 h1:2ULLhB9SUBzHngWYrbltWEmt7jCbA1SvweZsmKwdilM=
+github.com/go-ruby-regexp/regexp v0.0.0-20260703193131-c52ca89ccd08/go.mod h1:+0nK2X+aCPMO91bPMM/DT1OFUIzFQeoTPGkkOR3kd84=
+github.com/go-ruby-strscan/strscan v0.0.0-20260703201553-3ee70fcc12b2 h1:15U3Bs/yHb7yiVySfKcWL7bEQv3RmluzUXfuiOsIEJA=
+github.com/go-ruby-strscan/strscan v0.0.0-20260703201553-3ee70fcc12b2/go.mod h1:WFAVVphXHc+YBOlNSED/sMUSN1xZOps4rLBBLaoIAF8=
