@@ -16,3 +16,5 @@ github.com/go-ruby-strscan/strscan v0.0.0-20260820215438-4d266146cf13 h1:UESIFiP
 github.com/go-ruby-strscan/strscan v0.0.0-20260820215438-4d266146cf13/go.mod h1:A2rMRJNrC0Lh3t5B9Js7gpJCIPLxs1V2uuvVyj2wtKY=
 github.com/go-ruby-strscan/strscan v0.0.0-20260901145237-ccc695a615fd h1:Ms4leT+FVerjmaQGm/hBLZk1FbLShmnASzhMBk20aj4=
 github.com/go-ruby-strscan/strscan v0.0.0-20260901145237-ccc695a615fd/go.mod h1:7ZDv0gKkkx+fIiUZfpMY8HIqebGzvXSrCIm0xEEg/ik=
+github.com/go-ruby-strscan/strscan v0.0.0-20260916103346-94924cbd2f12 h1:xgWvfi1759PGBUHNk4cTsGOGknSzeTd+BQSIOzM1ZCc=
+github.com/go-ruby-strscan/strscan v0.0.0-20260916103346-94924cbd2f12/go.mod h1:7ZDv0gKkkx+fIiUZfpMY8HIqebGzvXSrCIm0xEEg/ik=
