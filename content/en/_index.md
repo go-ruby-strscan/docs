@@ -1,4 +1,9 @@
-# go-ruby-strscan documentation
+---
+title: "Home"
+weight: 10
+---
+
+# go-ruby-strscan documentation {#go-ruby-strscan-documentation}
 
 **Ruby's `StringScanner` in pure Go — MRI-compatible, no cgo.**
 
@@ -14,10 +19,13 @@ by `rbgo` as a native module — just like
 [go-ruby-erb](https://github.com/go-ruby-erb). The dependency runs the other
 way: this library has **no dependency on the Ruby runtime**.
 
-!!! success "Status: scanner complete — MRI byte-exact"
-    Faithful port of MRI's `strscan.c`: the full method surface — **`scan` / `scan_until` / `skip`**, **`match?` / `check` / `check_until`**, **`peek` / `getch`**, **`pos` / `charpos`**, **captures (`[]` / `captures`)** and **`unscan`** — with pattern matching backed by **go-ruby-regexp**. Validated by a **differential oracle** against the system `ruby` — scan results compared byte-for-byte — at 100% coverage, `gofmt` + `go vet` clean, CI green across the six 64-bit Go targets and three OSes.
+{{< callout type="info" >}}
+**Status: scanner complete — MRI byte-exact**
 
-## Quick taste
+Faithful port of MRI's `strscan.c`: the full method surface — **`scan` / `scan_until` / `skip`**, **`match?` / `check` / `check_until`**, **`peek` / `getch`**, **`pos` / `charpos`**, **captures (`[]` / `captures`)** and **`unscan`** — with pattern matching backed by **go-ruby-regexp**. Validated by a **differential oracle** against the system `ruby` — scan results compared byte-for-byte — at 100% coverage, `gofmt` + `go vet` clean, CI green across the six 64-bit Go targets and three OSes.
+{{< /callout >}}
+
+## Quick taste {#quick-taste}
 
 ```go
 sc := strscan.New("3 + 41 = 44")
@@ -28,7 +36,7 @@ rest  := sc.Peek(10)           // " = 44" without advancing
 _      = n; _ = m; _ = rest
 ```
 
-## Repositories
+## Repositories {#repositories}
 
 | Repo | What it is |
 | --- | --- |
@@ -37,7 +45,7 @@ _      = n; _ = m; _ = rest
 | [`go-ruby-strscan.github.io`](https://github.com/go-ruby-strscan/go-ruby-strscan.github.io) | the organization landing page (Hugo) |
 | [`brand`](https://github.com/go-ruby-strscan/brand) | logo and brand assets |
 
-## Principles
+## Principles {#principles}
 
 - **Pure Go, `CGO_ENABLED=0`** — trivial cross-compilation, a single static
   binary, no C toolchain.
@@ -48,11 +56,11 @@ _      = n; _ = m; _ = rest
 - **100% test coverage** is the target, enforced as a CI gate, across 6 arches
   and 3 OSes.
 
-## Where to go next
+## Where to go next {#where-to-go-next}
 
-- [Why pure Go](why.md) — why this slice of Ruby is deterministic enough to live
+- [Why pure Go]({{< relref "why.md" >}}) — why this slice of Ruby is deterministic enough to live
   as a standalone, interpreter-independent Go library.
-- [Usage & API](api.md) — the public surface and worked examples.
-- [Roadmap](roadmap.md) — what is done and what is downstream by design.
+- [Usage & API]({{< relref "api.md" >}}) — the public surface and worked examples.
+- [Roadmap]({{< relref "roadmap.md" >}}) — what is done and what is downstream by design.
 
 Source lives at [github.com/go-ruby-strscan/strscan](https://github.com/go-ruby-strscan/strscan).
