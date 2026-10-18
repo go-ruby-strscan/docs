@@ -1,4 +1,9 @@
-# Performance
+---
+title: "Performance"
+weight: 50
+---
+
+# Performance {#performance}
 
 `go-ruby-strscan/strscan` is the pure-Go, CGO-free library that
 [`rbgo`](https://github.com/go-embedded-ruby/ruby) binds for Ruby's `strscan`.
@@ -7,7 +12,7 @@ against every reference runtime's own C-extension `StringScanner`, one row per
 `StringScanner` operation. It is part of the ecosystem-wide per-module parity
 suite, and **the bar is beating MRI + YJIT**, not just plain MRI.
 
-## What is measured
+## What is measured {#what-is-measured}
 
 Six representative `StringScanner` operations run over one **fixed,
 deterministic corpus** (a 2 752-byte lexer-shaped input, `"foo123 + bar456 -
@@ -43,7 +48,7 @@ apples-to-apples.
   [`benchmarks/`](https://github.com/go-ruby-strscan/docs/tree/main/benchmarks)
   (`go/`, `ruby/strscan.rb`, `run.sh`). Reproduce: `bash benchmarks/run.sh`.
 
-## Results (ns/op, best of 25)
+## Results (ns/op, best of 25) {#results-nsop-best-of-25}
 
 These are the numbers **after** `go-ruby-regexp` landed its anchored
 **class-run consumer** — a fast path in the regexp VM that consumes a run of a
@@ -66,7 +71,7 @@ stays byte-identical to MRI on every op, captures included.
 | `scan-tokenize` | **167 708** | 464 985 | 327 880 | 383 669 | 57 140 | **1.96× faster** ✅ |
 | `scan_until` | 23 884 | 27 090 | 21 140 | 16 547 | 9 123 | 1.13× slower |
 
-### Before → after (this optimization)
+### Before → after (this optimization) {#before-after-this-optimization}
 
 Same host, same session shape, only the `go-ruby-regexp` pin changed — from the
 bounds-only match API (previous page revision) to the anchored class-run
@@ -88,7 +93,7 @@ dispatching per byte — from **1.64× behind** YJIT to **2.79× ahead**. `match
 (a single anchored `[A-Za-z0-9_]+` at every position) is the same shape and
 jumped from 1.15× behind to **5.08× ahead**.
 
-## The go-vs-YJIT verdict, per op
+## The go-vs-YJIT verdict, per op {#the-go-vs-yjit-verdict-per-op}
 
 **Beats YJIT (5 of 6):**
 
@@ -121,13 +126,16 @@ Net: **5 of the 6 operations now beat MRI + YJIT** (`peek`, `getch`, `match?`,
 `skip`, `scan-tokenize`) — up from 2 — and the last one (`scan_until`) beats
 **plain MRI** and sits within ~13 % of YJIT.
 
-!!! note "Cold-JIT caveat"
-    JRuby and TruffleRuby are measured **in-process after 3 warm-up passes**, but
-    3 passes is not full JIT steady state for the JVM / GraalVM — their columns
-    still carry cold-to-warming-JIT cost and should be read as
-    order-of-magnitude, not as fully-warmed peak throughput. TruffleRuby's very
-    low `scan-tokenize` in particular reflects aggressive Graal specialization of
-    that tight loop. The **go-vs-MRI and go-vs-YJIT comparisons are the load-
-    bearing ones** — MRI and YJIT reach steady state within the warm-up, and both
-    they and the Go driver are timed identically. All numbers are real,
-    single-host measurements from the 2026-07-03 run; nothing is cherry-picked.
+{{< callout type="info" >}}
+**Cold-JIT caveat**
+
+JRuby and TruffleRuby are measured **in-process after 3 warm-up passes**, but
+3 passes is not full JIT steady state for the JVM / GraalVM — their columns
+still carry cold-to-warming-JIT cost and should be read as
+order-of-magnitude, not as fully-warmed peak throughput. TruffleRuby's very
+low `scan-tokenize` in particular reflects aggressive Graal specialization of
+that tight loop. The **go-vs-MRI and go-vs-YJIT comparisons are the load-
+bearing ones** — MRI and YJIT reach steady state within the warm-up, and both
+they and the Go driver are timed identically. All numbers are real,
+single-host measurements from the 2026-07-03 run; nothing is cherry-picked.
+{{< /callout >}}

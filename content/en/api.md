@@ -1,18 +1,26 @@
-# Usage & API
+---
+title: "Usage & API"
+weight: 30
+---
+
+# Usage & API {#usage-api}
 
 The public API lives at the module root (`github.com/go-ruby-strscan/strscan`). It is **Ruby-shaped but Go-idiomatic**: a `Scanner` value carries the cursor and exposes the StringScanner method surface; the surface follows Go conventions — explicit returns, value types, no global state. Pattern matching uses [go-ruby-regexp](https://github.com/go-ruby-regexp).
 
-!!! success "Status: implemented"
-    The library is built and importable as `github.com/go-ruby-strscan/strscan`, bound into
-    `rbgo` as a native module; see [Roadmap](roadmap.md).
+{{< callout type="info" >}}
+**Status: implemented**
 
-## Install
+The library is built and importable as `github.com/go-ruby-strscan/strscan`, bound into
+`rbgo` as a native module; see [Roadmap]({{< relref "roadmap.md" >}}).
+{{< /callout >}}
+
+## Install {#install}
 
 ```sh
 go get github.com/go-ruby-strscan/strscan
 ```
 
-## Worked example
+## Worked example {#worked-example}
 
 ```go
 sc := strscan.New("3 + 41 = 44")
@@ -23,7 +31,7 @@ rest  := sc.Peek(10)           // " = 44" without advancing
 _      = n; _ = m; _ = rest
 ```
 
-## Shape
+## Shape {#shape}
 
 ```go
 // Scanner is a cursor over a string, advanced by matching patterns.
@@ -44,7 +52,7 @@ func (s *Scanner) Captures() []string                        // last match's gro
 func (s *Scanner) Unscan() error                             // undo the last scan
 ```
 
-## MRI conformance
+## MRI conformance {#mri-conformance}
 
 Correctness is defined by reference Ruby. A **differential oracle** runs a wide
 corpus through both the system `ruby` and this library and compares the results
@@ -52,7 +60,7 @@ corpus through both the system `ruby` and this library and compares the results
 themselves where `ruby` is not on `PATH` (e.g. the qemu arch lanes), so the
 cross-arch builds still validate the library.
 
-## Relationship to Ruby
+## Relationship to Ruby {#relationship-to-ruby}
 
 `go-ruby-strscan/strscan` is **standalone and reusable**, and is the backend bound into
 [go-embedded-ruby](https://github.com/go-embedded-ruby/ruby) by `rbgo` as a
